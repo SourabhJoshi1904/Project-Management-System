@@ -1,0 +1,168 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// Database: MongoDB (e.g. a free cluster on https://www.mongodb.com/atlas)
+// MongoDB has no native foreign keys, so relations below are enforced by
+// Prisma itself (relationMode = "prisma", the only valid mode for MongoDB).
+// Cascading deletes (e.g. deleting a project's tasks/members/comments) are
+// performed explicitly in the API route handlers, not declared here, so
+// this also works on a plain standalone MongoDB instance (no replica set
+// required) for everything except one spot that intentionally uses a
+// multi-document transaction (creating a project + its owner membership,
+// in app/api/projects/route.ts) — that one needs a replica-set MongoDB
+// (Atlas qualifies; a bare standalone mongod does not).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId   String   @unique
+  name      String
+  email     String   @unique
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedProjects Project[]
+  memberships   Member[]
+  assignedTasks Task[]         @relation("AssignedTasks")
+  comments      Comment[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Project {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  deadline    DateTime?
+  status      ProjectStatus @default(ACTIVE)
+  ownerId     String        @db.ObjectId
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  owner        User          @relation(fields: [ownerId], references: [id])
+  members      Member[]
+  tasks        Task[]
+  activityLogs ActivityLog[]
+
+  @@map("projects")
+}
+
+model Member {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  projectId String     @db.ObjectId
+  userId    String     @db.ObjectId
+  role      MemberRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+  @@map("members")
+}
+
+model Task {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  description  String?
+  priority     TaskPriority @default(MEDIUM)
+  status       TaskStatus   @default(TODO)
+  deadline     DateTime?
+  projectId    String       @db.ObjectId
+  assignedToId String?      @db.ObjectId
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id])
+  assignedTo   User?         @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  comments     Comment[]
+  activityLogs ActivityLog[]
+
+  @@map("tasks")
+}
+
+model Comment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  message   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("comments")
+}
+
+model ActivityLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  projectId   String?  @db.ObjectId
+  taskId      String?  @db.ObjectId
+  action      String
+  description String
+  createdAt   DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+  task    Task?    @relation(fields: [taskId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String           @db.ObjectId
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+enum MemberRole {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
