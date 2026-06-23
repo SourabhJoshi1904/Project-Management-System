@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TaskFlow — Project Management App
 
 ## Project Overview
@@ -318,3 +319,6 @@ accounts, or a real running instance with real data. None of it is a code gap; i
    - File upload / task attachments and real-time (Socket.IO) updates are not implemented — both
      were out of scope for this pass and would need additional infrastructure (a storage bucket;
      a persistent-connection service, since Vercel's serverless functions can't hold one).
+=======
+# Project-Management-System
+>>>>>>> 2d9607044ce3125a35143a2294f7d795ebbddeb3
